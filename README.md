@@ -1,1 +1,2 @@
 # decisiones-inteligentes
+Esta aplicación no almacena, transmite o registra ningún dato personal, ni las opciones evaluadas, los criterios utilizados, calificaciones asignadas ni resultados obtenidos. Todo el procesamiento ocurre exclusivamente en tu dispositivo y se elimina permanentemente al cerrar la página. Si elige la opción de imprimir el resultado, hágalo antes de cerrar la página, de lo contrario, perderá todos los datos incluidos.

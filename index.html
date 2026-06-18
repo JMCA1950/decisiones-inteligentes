@@ -20,7 +20,11 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #F7F8FA; }
     ::-webkit-scrollbar-thumb { background: #C8CDD8; border-radius: 3px; }
-    @media print {
+    @media (max-width: 768px) {
+  body { font-size:14px; }
+  table { font-size:12px !important; }
+}
+@media print {
       body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none !important; }
       @page { margin: 2cm; }
@@ -368,7 +372,7 @@ function Step4({ state, onReset }) {
   const [aiError,    setAiError]    = useState("");
 
   const getAiAnalysis = async () => {
-    setAiLoading(true); setAiError("");
+    setAiError("Análisis con IA temporalmente desactivado en la versión GitHub Pages. Requiere un backend seguro."); return;
 
     // Build a detailed prompt that includes ALL context: question, constraints, options, criteria, scores
     const prompt = `Sos un experto en análisis de decisiones. El usuario completó una matriz de decisión ponderada. A continuación están todos los datos del proceso:

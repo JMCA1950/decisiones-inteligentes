@@ -493,7 +493,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
             </tr>
           </tbody>
         </table>
-        {aiAnalysis && (
+        {true && (
           <>
             <h3>Análisis cualitativo con IA</h3>
             <div className="ai-analysis">
@@ -646,17 +646,14 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
       <Card style={{padding:20}}>
         <SectionLabel style={{marginBottom:6}}>Análisis cualitativo con IA</SectionLabel>
         {!aiAnalysis && !aiLoading && (
-          <>
-            <p style={{fontSize:13,color:C.muted,margin:"0 0 14px",lineHeight:1.6}}>
-              La IA analizará los resultados considerando <strong>todos los condicionamientos y contexto</strong> que ingresaste
-              {context.trim() ? ` ("${context.slice(0,60)}${context.length>60?"…":""}") ` : " "}
-              para darte una interpretación personalizada que va más allá de los números.
+          <div>
+            <p style={{fontSize:14,color:C.text,lineHeight:1.7}}>
+              🤖 <strong>Análisis cualitativo con IA</strong>
             </p>
-            <PrimaryBtn onClick={getAiAnalysis} style={{width:"100%"}}>
-              ✦ Analizar con IA
-            </PrimaryBtn>
-            {aiError && <p style={{color:C.danger,fontSize:13,marginTop:10}}>{aiError}</p>}
-          </>
+            <p style={{fontSize:13,color:C.muted,marginTop:10,lineHeight:1.6}}>
+              Próximamente disponible en una futura actualización.
+            </p>
+          </div>
         )}
         {aiLoading && (
           <div style={{textAlign:"center",padding:"20px 0"}}>
@@ -724,7 +721,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
             justifyContent:"center", gap:8, fontFamily:"inherit",
             boxShadow:"0 2px 8px rgba(22,163,74,0.3)",
           }}>
-            🖨️ Imprimir hoja de resultados
+            🖨️ Imprimir / Guardar PDF
           </button>
         </div>
       )}

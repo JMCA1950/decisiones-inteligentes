@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matriz de Decisión — Decisiones Inteligentes</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #F7F8FA; font-family: 'Inter', system-ui, sans-serif; color: #1A1D2E; }
+    input:focus, textarea:focus { border-color: #5B6AF0 !important; box-shadow: 0 0 0 3px rgba(91,106,240,0.12) !important; outline: none; }
+    input::placeholder, textarea::placeholder { color: #B0B7C3; }
+    @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .fade-up { animation: fadeUp 0.3s ease forwards; }
+    button { font-family: 'Inter', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #F7F8FA; }
+    ::-webkit-scrollbar-thumb { background: #C8CDD8; border-radius: 3px; }
+    @media (max-width: 768px) {
+  body { font-size:14px; }
+  table { font-size:12px !important; }
+}
+@media print {
+      body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      @page { margin: 2cm; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+// ── TOKENS ───────────────────────────────────────────────────────────────────
+const C = {
+  bg: "#F7F8FA", white: "#FFFFFF", border: "#E2E5EC",
+  text: "#1A1D2E", muted: "#6B7280", accent: "#5B6AF0",
+  accentLight: "#EEF0FE", accentMid: "#C7CBF9",
+  success: "#16A34A", successLight: "#DCFCE7",
+  warn: "#D97706",   warnLight:   "#FEF3C7",
+  danger: "#DC2626", dangerLight: "#FEE2E2",
+  shadow: "0 1px 3px rgba(0,0,0,0.08)",
+};
+const LETTERS = ["A","B","C","D","E","F"];
+const STEPS   = ["Decisión","Opciones","Criterios","Calificaciones","Resultado"];
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function totalPct(criteria) {
+  return Math.round(criteria.reduce((s,c) => s + (parseFloat(c.pct)||0), 0) * 100) / 100;
+}
+function computeScores(options, criteria, ratings) {
+  return options.map((opt, oi) => ({
+    name: opt,
+    score: Math.round(
+      criteria.reduce((sum, cr, ci) => {
+        return sum + ((parseFloat(cr.pct)||0) / 100) * (parseFloat((ratings[oi]||[])[ci]) || 0);
+      }, 0) * 100
+    ) / 100
+  }));
+}
+
+// ── SHARED UI ────────────────────────────────────────────────────────────────
+function Card({ children, style={} }) {
+  return (
+    <div style={{background:C.white, border:`1px solid ${C.border}`, borderRadius:14,
+      padding:24, width:"100%", maxWidth:580, boxShadow:C.shadow, ...style}}>
+      {children}
+    </div>
+  );
+}
+function SectionLabel({ children, style={} }) {
+  return <div style={{fontSize:11,fontWeight:600,letterSpacing:"0.09em",textTransform:"uppercase",
+    color:C.muted,marginBottom:8,...style}}>{children}</div>;
+}
+function PrimaryBtn({ children, onClick, disabled=false, style={} }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      background: disabled ? "#E2E5EC" : C.accent, color: disabled ? C.muted : "#fff",
+      border:"none", borderRadius:10, padding:"12px 28px", fontSize:14, fontWeight:600,
+      cursor: disabled ? "not-allowed" : "pointer", transition:"opacity 0.15s,transform 0.1s", ...style
+    }}
+    onMouseEnter={e=>{ if(!disabled) e.target.style.opacity="0.88"; }}
+    onMouseLeave={e=>{ e.target.style.opacity="1"; }}>
+      {children}
+    </button>
+  );
+}
+function GhostBtn({ children, onClick, style={} }) {
+  return (
+    <button onClick={onClick} style={{background:"none", border:`1px solid ${C.border}`,
+      borderRadius:10, padding:"10px 20px", fontSize:13, fontWeight:500,
+      color:C.muted, cursor:"pointer", ...style}}>
+      {children}
+    </button>
+  );
+}
+function TextInput({ value, onChange, placeholder, style={} }) {
+  return (
+    <input value={value} onChange={onChange} placeholder={placeholder} style={{
+      width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
+      color:C.text, fontSize:14, padding:"10px 14px", fontFamily:"inherit",
+      transition:"border-color 0.15s", ...style}} />
+  );
+}
+function Textarea({ value, onChange, placeholder, rows=3, style={} }) {
+  return (
+    <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows} style={{
+      width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
+      color:C.text, fontSize:14, padding:"10px 14px", fontFamily:"inherit",
+      resize:"vertical", transition:"border-color 0.15s", ...style}} />
+  );
+}
+
+// ── STEP BAR ─────────────────────────────────────────────────────────────────
+function StepBar({ step }) {
+  return (
+    <div style={{display:"flex",alignItems:"center",marginBottom:32,maxWidth:580,width:"100%"}}>
+      {STEPS.map((label, i) => {
+        const done = i < step, active = i === step;
+        return (
+          <React.Fragment key={i}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0}}>
+              <div style={{
+                width:28, height:28, borderRadius:"50%",
+                background: done ? C.accent : active ? C.accentLight : C.border,
+                border:`2px solid ${done||active ? C.accent : C.border}`,
+                color: done ? "#fff" : active ? C.accent : C.muted,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:12, fontWeight:700,
+              }}>{done ? "✓" : i+1}</div>
+              <span style={{fontSize:10,fontWeight:active?600:400,color:active?C.accent:C.muted,whiteSpace:"nowrap"}}>
+                {label}
+              </span>
+            </div>
+            {i < STEPS.length-1 && (
+              <div style={{flex:1,height:2,background:done?C.accent:C.border,margin:"0 4px",marginBottom:18}} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── STEP 0 – DECISIÓN ────────────────────────────────────────────────────────
+function Step0({ state, setState, onNext }) {
+  return (
+    <Card>
+      <SectionLabel>¿Qué decisión necesitás tomar?</SectionLabel>
+      <Textarea
+        value={state.question}
+        onChange={e => setState(s=>({...s, question:e.target.value}))}
+        placeholder="Ej: ¿Qué auto comprar? ¿A qué universidad ir? ¿Aceptar la oferta de trabajo?"
+        rows={3}
+      />
+      <SectionLabel style={{marginTop:20}}>Contexto adicional (opcional)</SectionLabel>
+      <Textarea
+        value={state.context}
+        onChange={e => setState(s=>({...s, context:e.target.value}))}
+        placeholder="Situación personal, limitaciones económicas, prioridades de vida, urgencias…"
+        rows={2}
+      />
+      <p style={{fontSize:12,color:C.muted,marginTop:8,lineHeight:1.5}}>
+        💡 Cuanto más contexto agregues, más preciso será el análisis de la IA al final.
+      </p>
+      <div style={{marginTop:20,textAlign:"right"}}>
+        <PrimaryBtn onClick={onNext} disabled={state.question.trim().length < 5}>
+          Continuar →
+        </PrimaryBtn>
+      </div>
+    </Card>
+  );
+}
+
+// ── STEP 1 – OPCIONES ────────────────────────────────────────────────────────
+function Step1({ state, setState, onNext, onBack }) {
+  const opts = state.options;
+  const valid = opts.filter(o=>o.trim()).length >= 2;
+  const update = (i,v) => setState(s=>{ const o=[...s.options]; o[i]=v; return {...s,options:o}; });
+  const add    = ()    => setState(s=>({...s, options:[...s.options,""]}));
+  const remove = (i)   => setState(s=>({...s, options:s.options.filter((_,idx)=>idx!==i)}));
+
+  return (
+    <Card>
+      <SectionLabel>Opciones a comparar (mínimo 2, máximo 6)</SectionLabel>
+      {opts.map((opt,i) => (
+        <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+          <div style={{width:30,height:30,borderRadius:8,background:C.accentLight,color:C.accent,
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>
+            {LETTERS[i]}
+          </div>
+          <TextInput value={opt} onChange={e=>update(i,e.target.value)} placeholder={`Opción ${LETTERS[i]}…`} />
+          {opts.length > 2 && (
+            <button onClick={()=>remove(i)} style={{background:"none",border:"none",color:C.muted,
+              cursor:"pointer",fontSize:16,padding:"4px 6px",lineHeight:1,flexShrink:0}}>✕</button>
+          )}
+        </div>
+      ))}
+      {opts.length < 6 && (
+        <button onClick={add} style={{background:"none",border:`1px dashed ${C.border}`,borderRadius:8,
+          color:C.muted,cursor:"pointer",padding:"9px",width:"100%",fontSize:13,marginTop:4}}>
+          + Agregar opción
+        </button>
+      )}
+      <div style={{marginTop:20,display:"flex",justifyContent:"space-between"}}>
+        <GhostBtn onClick={onBack}>← Atrás</GhostBtn>
+        <PrimaryBtn onClick={onNext} disabled={!valid}>Continuar →</PrimaryBtn>
+      </div>
+    </Card>
+  );
+}
+
+// ── STEP 2 – CRITERIOS ───────────────────────────────────────────────────────
+function Step2({ state, setState, onNext, onBack }) {
+  const criteria = state.criteria;
+  const total    = totalPct(criteria);
+  const namedCriteria = criteria.filter(c=>c.name.trim() && parseFloat(c.pct)>0);
+  const validCount = namedCriteria.length >= 3;
+  const validTotal = total === 100;
+  const canContinue = validCount && validTotal;
+
+  const update = (i,field,val) => setState(s=>{
+    const cr = s.criteria.map((c,idx)=>idx===i?{...c,[field]:val}:c);
+    return {...s, criteria:cr};
+  });
+  const add    = () => setState(s=>({...s, criteria:[...s.criteria,{name:"",pct:""}]}));
+  const remove = (i) => setState(s=>({...s, criteria:s.criteria.filter((_,idx)=>idx!==i)}));
+
+  const pctColor = total===100 ? C.success : total>100 ? C.danger : C.warn;
+  const pctBg    = total===100 ? C.successLight : total>100 ? C.dangerLight : C.warnLight;
+
+  return (
+    <Card>
+      <SectionLabel>Criterios de decisión (mínimo 3)</SectionLabel>
+      <p style={{fontSize:13,color:C.muted,margin:"0 0 16px",lineHeight:1.5}}>
+        Definí qué aspectos importan y asignales un peso en porcentaje. Los porcentajes deben sumar exactamente <strong>100%</strong>.
+      </p>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 90px 32px",gap:8,marginBottom:6}}>
+        <span style={{fontSize:11,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em"}}>Criterio</span>
+        <span style={{fontSize:11,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"center"}}>Peso %</span>
+        <span/>
+      </div>
+
+      {criteria.map((cr,i) => (
+        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 90px 32px",gap:8,marginBottom:8,alignItems:"center"}}>
+          <TextInput value={cr.name} onChange={e=>update(i,"name",e.target.value)} placeholder={`Criterio ${i+1}…`} />
+          <input type="number" min="0" max="100" value={cr.pct}
+            onChange={e=>update(i,"pct",e.target.value)} placeholder="0"
+            style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+              fontSize:14,padding:"10px 8px",fontFamily:"inherit",width:"100%",textAlign:"center"}} />
+          {criteria.length > 3
+            ? <button onClick={()=>remove(i)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:16,padding:"4px"}}>✕</button>
+            : <div/>
+          }
+        </div>
+      ))}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,flexWrap:"wrap",gap:8}}>
+        <button onClick={add} style={{background:"none",border:`1px dashed ${C.border}`,borderRadius:8,
+          color:C.muted,cursor:"pointer",padding:"8px 14px",fontSize:13}}>
+          + Agregar criterio
+        </button>
+        <div style={{background:pctBg,borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:pctColor}}>
+          Total: {total}%
+          {total===100 ? " ✓" : total>100 ? ` (excede ${(total-100).toFixed(0)}%)` : ` (faltan ${(100-total).toFixed(0)}%)`}
+        </div>
+      </div>
+
+      <div style={{marginTop:20,display:"flex",justifyContent:"space-between"}}>
+        <GhostBtn onClick={onBack}>← Atrás</GhostBtn>
+        <PrimaryBtn onClick={onNext} disabled={!canContinue}>Continuar →</PrimaryBtn>
+      </div>
+    </Card>
+  );
+}
+
+// ── STEP 3 – CALIFICACIONES ──────────────────────────────────────────────────
+function Step3({ state, setState, onNext, onBack }) {
+  const { options, criteria, ratings } = state;
+  const validOpts = options.filter(o=>o.trim());
+
+  const setRating = (oi,ci,val) => setState(s=>{
+    const r = s.ratings.map(row=>[...row]);
+    r[oi][ci] = val;
+    return {...s, ratings:r};
+  });
+
+  const allFilled = validOpts.every((_,oi) =>
+    criteria.every((_,ci) => {
+      const v = ratings[oi]?.[ci];
+      return v !== "" && v !== undefined && !isNaN(parseFloat(v));
+    })
+  );
+
+  return (
+    <div style={{width:"100%",maxWidth:580,display:"flex",flexDirection:"column",gap:0}}>
+      <Card style={{marginBottom:16}}>
+        <SectionLabel>Calificá cada opción en cada criterio</SectionLabel>
+        <p style={{fontSize:13,color:C.muted,margin:"0 0 4px",lineHeight:1.5}}>
+          Escala de <strong>0</strong> (no cumple nada) a <strong>10</strong> (cumple perfectamente).
+          Usá los botones rápidos o escribí el número exacto.
+        </p>
+      </Card>
+
+      {validOpts.map((opt,oi) => (
+        <Card key={oi} style={{marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+            <div style={{width:28,height:28,borderRadius:8,background:C.accentLight,color:C.accent,
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>
+              {LETTERS[oi]}
+            </div>
+            <span style={{fontWeight:700,fontSize:15,color:C.text}}>{opt}</span>
+          </div>
+
+          {criteria.map((cr,ci) => {
+            const val = ratings[oi]?.[ci] ?? "";
+            const num = parseFloat(val);
+            return (
+              <div key={ci} style={{marginBottom:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+                  <span style={{fontSize:13,color:C.text,fontWeight:500}}>{cr.name}</span>
+                  <span style={{fontSize:11,color:C.muted}}>peso: {cr.pct}%</span>
+                </div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+                  {[0,1,2,3,4,5,6,7,8,9,10].map(v => (
+                    <button key={v} onClick={()=>setRating(oi,ci,v)} style={{
+                      width:34,height:34,borderRadius:7,
+                      border:`1px solid ${val===v||val===String(v) ? C.accent : C.border}`,
+                      background: val===v||val===String(v) ? C.accentLight : C.white,
+                      color: val===v||val===String(v) ? C.accent : C.muted,
+                      fontSize:13,fontWeight:600,cursor:"pointer",transition:"all 0.1s",
+                    }}>{v}</button>
+                  ))}
+                  <input type="number" min="0" max="10" step="0.1" value={val}
+                    onChange={e=>setRating(oi,ci,e.target.value)}
+                    placeholder="—"
+                    style={{width:52,background:C.bg,border:`1px solid ${val!==""&&!isNaN(num)?C.accent:C.border}`,
+                      borderRadius:7,color:C.text,fontSize:13,padding:"7px 6px",textAlign:"center",fontFamily:"inherit"}} />
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      ))}
+
+      <div style={{display:"flex",justifyContent:"space-between",maxWidth:580,width:"100%",marginTop:4}}>
+        <GhostBtn onClick={onBack}>← Atrás</GhostBtn>
+        <PrimaryBtn onClick={onNext} disabled={!allFilled}>Ver resultado →</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ── STEP 4 – RESULTADO ───────────────────────────────────────────────────────
+function Step4({ state, onReset }) {
+  const { options, criteria, ratings, question, context } = state;
+  const validOpts = options.filter(o=>o.trim());
+  const scores    = computeScores(validOpts, criteria, ratings);
+  const sorted    = [...scores].sort((a,b)=>b.score-a.score);
+  const maxScore  = sorted[0].score;
+  const winner    = sorted[0];
+
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [aiLoading,  setAiLoading]  = useState(false);
+  const [aiError,    setAiError]    = useState("");
+
+  const getAiAnalysis = async () => {
+    setAiError("Análisis con IA temporalmente desactivado en la versión GitHub Pages. Requiere un backend seguro."); return;
+
+    // Build a detailed prompt that includes ALL context: question, constraints, options, criteria, scores
+    const prompt = `Sos un experto en análisis de decisiones. El usuario completó una matriz de decisión ponderada. A continuación están todos los datos del proceso:
+
+═══════════════════════════════════════
+DECISIÓN A TOMAR
+═══════════════════════════════════════
+${question.trim()}
+
+${context.trim() ? `CONDICIONAMIENTOS Y CONTEXTO DEL USUARIO
+═══════════════════════════════════════
+${context.trim()}
+
+` : ""}═══════════════════════════════════════
+OPCIONES EVALUADAS
+═══════════════════════════════════════
+${validOpts.map((o,i) => `${LETTERS[i]}) ${o}`).join("\n")}
+
+═══════════════════════════════════════
+CRITERIOS Y PESOS ASIGNADOS
+═══════════════════════════════════════
+${criteria.map(c => `• ${c.name}: ${c.pct}%`).join("\n")}
+
+═══════════════════════════════════════
+CALIFICACIONES POR OPCIÓN (0-10)
+═══════════════════════════════════════
+${validOpts.map((opt,oi) =>
+  `${LETTERS[oi]}) ${opt}:\n` +
+  criteria.map((cr,ci) => `   - ${cr.name}: ${ratings[oi]?.[ci] ?? 0}/10`).join("\n")
+).join("\n\n")}
+
+═══════════════════════════════════════
+PUNTAJES PONDERADOS FINALES
+═══════════════════════════════════════
+${sorted.map((s,i) => `${i===0?"★ ":"  "}${s.name}: ${s.score.toFixed(2)} puntos`).join("\n")}
+
+OPCIÓN GANADORA: ${winner.name} (${winner.score.toFixed(2)} pts)
+
+═══════════════════════════════════════
+
+Con toda esta información, escribí un análisis cualitativo en 4-5 párrafos que:
+1. Confirme o matice la recomendación matemática considerando el contexto y condicionamientos del usuario
+2. Explique qué criterios fueron decisivos y por qué
+3. Señale riesgos, oportunidades o factores que los números no capturan completamente
+4. Mencione si alguna opción alternativa merece consideración especial dado el contexto
+5. Cierre con una recomendación final clara y personalizada
+
+Sé específico, directo y útil. Hace referencia explícita al contexto personal del usuario. Respondé en español.`;
+
+    try {
+      const res  = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role:"user", content: prompt }]
+        })
+      });
+      const data = await res.json();
+      setAiAnalysis(data.content?.map(b=>b.text||"").join("") || "");
+    } catch(e) {
+      setAiError("No se pudo obtener el análisis. Verificá la conexión e intentá de nuevo.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  return (
+    <div style={{width:"100%",maxWidth:580,display:"flex",flexDirection:"column",gap:16}} className="fade-up">
+
+      <div id="print-area" style={{display:"none"}}>
+        <h2>{question}</h2>
+        {context.trim() && <><h3>Contexto y condicionamientos</h3><p>{context}</p></>}
+        <div className="winner-box">
+          <div className="winner-label">Opción recomendada</div>
+          <div className="winner-name">{winner.name}</div>
+          <div className="winner-score">{winner.score.toFixed(2)} <span style={{fontSize:14,fontWeight:400,color:"#6B7280"}}>/ 10</span></div>
+        </div>
+        <h3>Ranking de opciones</h3>
+        {sorted.map((s,i)=>(
+          <div key={i} className="ranking-row">
+            <span style={{fontSize:13,fontWeight:s.score===maxScore?700:400,minWidth:120,color:s.score===maxScore?"#5B6AF0":"#1A1D2E"}}>
+              {s.score===maxScore?"★ ":""}{s.name}
+            </span>
+            <div className="bar-wrap"><div className="bar-fill" style={{width:`${(s.score/10)*100}%`}}/></div>
+            <span style={{fontSize:13,fontWeight:700,color:s.score===maxScore?"#5B6AF0":"#1A1D2E"}}>{s.score.toFixed(2)}</span>
+          </div>
+        ))}
+        <h3>Detalle del cálculo ponderado</h3>
+        <table>
+          <thead>
+            <tr>
+              <th style={{textAlign:"left"}}>Criterio</th>
+              <th>Peso</th>
+              {validOpts.map((opt,i)=><th key={i} colSpan={2}>{LETTERS[i]}. {opt.length>12?opt.slice(0,12)+"…":opt}</th>)}
+            </tr>
+            <tr>
+              <td/><td/>
+              {validOpts.map((_,i)=><React.Fragment key={i}><td style={{fontSize:10,color:"#9CA3AF"}}>Nota</td><td style={{fontSize:10,color:"#9CA3AF"}}>Pts</td></React.Fragment>)}
+            </tr>
+          </thead>
+          <tbody>
+            {criteria.map((cr,ci)=>(
+              <tr key={ci}>
+                <td>{cr.name}</td>
+                <td style={{textAlign:"center",fontWeight:600}}>{cr.pct}%</td>
+                {validOpts.map((_,oi)=>{
+                  const nota=parseFloat(ratings[oi]?.[ci])||0;
+                  const pts=((parseFloat(cr.pct)||0)/100)*nota;
+                  return <React.Fragment key={oi}><td>{nota}</td><td className="accent">{pts.toFixed(2)}</td></React.Fragment>;
+                })}
+              </tr>
+            ))}
+            <tr style={{fontWeight:800,fontSize:14,borderTop:"2px solid #E2E5EC"}}>
+              <td colSpan={2}>Total</td>
+              {scores.map((s,i)=><td key={i} colSpan={2} className={s.score===maxScore?"accent":""}>{s.score.toFixed(2)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+        {true && (
+          <>
+            <h3>Análisis cualitativo con IA</h3>
+            <div className="ai-analysis">
+              {aiAnalysis.split("\n\n").filter(p=>p.trim()).map((para,i)=>(
+                <p key={i}>{para}</p>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="footer">
+          <div>APP generada por Claude.ai</div>
+          <div>El diseño, código y contenido de esta app están protegidos por leyes de derechos de autor. © 2026 - Decisiones Inteligentes</div>
+          <div style={{fontWeight:600}}>Lic. José María Condomí Alcorta</div>
+        </div>
+      </div>
+
+      {/* Condicionamientos resumidos */}
+      <Card style={{padding:20,background:C.accentLight,border:`1px solid ${C.accentMid}`}}>
+        <SectionLabel style={{color:C.accent}}>Decisión analizada</SectionLabel>
+        <p style={{fontSize:15,fontWeight:600,color:C.text,margin:"0 0 8px",lineHeight:1.4}}>{question}</p>
+        {context.trim() && (
+          <>
+            <div style={{height:1,background:C.accentMid,margin:"10px 0"}}/>
+            <SectionLabel style={{color:C.accent,marginBottom:4}}>Contexto y condicionamientos</SectionLabel>
+            <p style={{fontSize:13,color:"#374151",margin:0,lineHeight:1.6}}>{context}</p>
+          </>
+        )}
+      </Card>
+
+      {/* Ganador */}
+      <Card style={{textAlign:"center",padding:28,background:`linear-gradient(135deg,${C.accentLight},#fff)`
+        ,border:`2px solid ${C.accentMid}`}}>
+        <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.accent,marginBottom:8}}>
+          Opción recomendada por la matriz
+        </div>
+        <div style={{fontSize:28,fontWeight:800,color:C.text,marginBottom:6}}>{winner.name}</div>
+        <div style={{fontSize:36,fontWeight:800,color:C.accent,lineHeight:1}}>
+          {winner.score.toFixed(2)}
+          <span style={{fontSize:14,color:C.muted,fontWeight:400}}> / 10</span>
+        </div>
+      </Card>
+
+      {/* Ranking con barras */}
+      <Card style={{padding:20}}>
+        <SectionLabel style={{marginBottom:16}}>Ranking de opciones</SectionLabel>
+        {sorted.map((s,i) => {
+          const isWin = s.score === maxScore;
+          const pct   = (s.score / 10) * 100;
+          return (
+            <div key={i} style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:14,fontWeight:isWin?700:400,color:isWin?C.accent:C.text}}>
+                  {isWin?"★ ":""}{s.name}
+                </span>
+                <span style={{fontSize:14,fontWeight:700,color:isWin?C.accent:C.text}}>{s.score.toFixed(2)}</span>
+              </div>
+              <div style={{background:C.border,borderRadius:4,height:8,overflow:"hidden"}}>
+                <div style={{width:`${pct}%`,height:"100%",borderRadius:4,
+                  background:isWin?C.accent:"#B0B7C3",transition:"width 0.7s ease"}}/>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Tabla detalle */}
+      <Card style={{padding:20}}>
+        <SectionLabel style={{marginBottom:14}}>Detalle del cálculo ponderado</SectionLabel>
+        <p style={{fontSize:12,color:C.muted,margin:"0 0 14px",lineHeight:1.5}}>
+          Cada celda muestra: <em>calificación</em> → <em>puntos ponderados</em> (calificación × peso%).
+          {context.trim() && " El contexto y condicionamientos del usuario fueron considerados al diseñar los criterios y sus pesos."}
+        </p>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:400}}>
+            <thead>
+              <tr>
+                <th style={{textAlign:"left",padding:"7px 10px 7px 0",color:C.muted,fontWeight:600,
+                  borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>Criterio</th>
+                <th style={{textAlign:"center",padding:"7px 8px",color:C.muted,fontWeight:600,
+                  borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>Peso</th>
+                {validOpts.map((opt,i) => (
+                  <th key={i} colSpan={2} style={{textAlign:"center",padding:"7px 6px",color:C.muted,fontWeight:600,
+                    borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>
+                    {LETTERS[i]}. {opt.length>14?opt.slice(0,14)+"…":opt}
+                  </th>
+                ))}
+              </tr>
+              <tr>
+                <td style={{borderBottom:`1px solid ${C.border}`,padding:"2px 0 6px"}}/>
+                <td style={{borderBottom:`1px solid ${C.border}`}}/>
+                {validOpts.map((_,i) => (
+                  <React.Fragment key={i}>
+                    <td style={{textAlign:"center",fontSize:10,color:C.muted,padding:"2px 4px 6px",
+                      borderBottom:`1px solid ${C.border}`}}>Nota</td>
+                    <td style={{textAlign:"center",fontSize:10,color:C.muted,padding:"2px 4px 6px",
+                      borderBottom:`1px solid ${C.border}`}}>Pts</td>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {criteria.map((cr,ci) => (
+                <tr key={ci} style={{borderBottom:`1px solid ${C.bg}`}}>
+                  <td style={{padding:"9px 10px 9px 0",color:C.text,fontWeight:500}}>{cr.name}</td>
+                  <td style={{textAlign:"center",padding:"9px 8px",color:C.muted,fontWeight:600}}>{cr.pct}%</td>
+                  {validOpts.map((_,oi) => {
+                    const nota = parseFloat(ratings[oi]?.[ci]) || 0;
+                    const pts  = ((parseFloat(cr.pct)||0)/100) * nota;
+                    const isTop = pts === Math.max(...validOpts.map((__,k)=>(parseFloat(cr.pct)||0)/100*(parseFloat(ratings[k]?.[ci])||0)));
+                    return (
+                      <React.Fragment key={oi}>
+                        <td style={{textAlign:"center",padding:"9px 6px",color:C.text}}>{nota}</td>
+                        <td style={{textAlign:"center",padding:"9px 6px",fontWeight:700,
+                          color:isTop?C.accent:C.text}}>{pts.toFixed(2)}</td>
+                      </React.Fragment>
+                    );
+                  })}
+                </tr>
+              ))}
+              <tr style={{borderTop:`2px solid ${C.border}`}}>
+                <td colSpan={2} style={{padding:"10px 10px 8px 0",fontWeight:700,color:C.text,fontSize:14}}>
+                  Total
+                </td>
+                {scores.map((s,i) => (
+                  <td key={i} colSpan={2} style={{textAlign:"center",padding:"10px 6px 8px",
+                    fontWeight:800,fontSize:16,color:s.score===maxScore?C.accent:C.text}}>
+                    {s.score.toFixed(2)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mini leyenda de criterios con sus pesos */}
+        <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
+          <SectionLabel style={{marginBottom:8}}>Peso de cada criterio</SectionLabel>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {criteria.map((cr,i) => (
+              <div key={i} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,
+                padding:"5px 10px",fontSize:12,color:C.text}}>
+                <strong>{cr.pct}%</strong> {cr.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Análisis IA */}
+      <Card style={{padding:20}}>
+        <SectionLabel style={{marginBottom:6}}>Análisis cualitativo con IA</SectionLabel>
+        {!aiAnalysis && !aiLoading && (
+          <div>
+            <p style={{fontSize:14,color:C.text,lineHeight:1.7}}>
+              🤖 <strong>Análisis cualitativo con IA</strong>
+            </p>
+            <p style={{fontSize:13,color:C.muted,marginTop:10,lineHeight:1.6}}>
+              Próximamente disponible en una futura actualización.
+            </p>
+          </div>
+        )}
+        {aiLoading && (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <p style={{color:C.muted,fontSize:14}}>
+              Analizando tu decisión y contexto<span style={{animation:"blink 1s infinite"}}>…</span>
+            </p>
+          </div>
+        )}
+        {aiAnalysis && (
+          <div>
+            {aiAnalysis.split("\n\n").filter(p=>p.trim()).map((para,i) => (
+              <p key={i} style={{fontSize:14,color:C.text,lineHeight:1.75,marginBottom:i<aiAnalysis.split("\n\n").length-1?14:0}}>
+                {para}
+              </p>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Print button */}
+      {aiAnalysis && (
+        <div className="no-print" style={{width:"100%",maxWidth:580}}>
+          <button onClick={()=>{
+            const printContent = document.getElementById("print-area");
+            const html = printContent ? printContent.innerHTML : "";
+            const win = window.open("","_blank","width=900,height=700");
+            win.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Resultado — Decisiones Inteligentes</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;color:#1A1D2E;background:#fff;padding:32px}
+  h2{font-size:20px;font-weight:800;margin-bottom:6px}
+  h3{font-size:14px;font-weight:700;margin:16px 0 6px;text-transform:uppercase;letter-spacing:0.06em;color:#6B7280}
+  p{font-size:13px;line-height:1.7;margin-bottom:8px;color:#374151}
+  .winner-box{background:#EEF0FE;border:2px solid #C7CBF9;border-radius:10px;padding:20px;text-align:center;margin:16px 0}
+  .winner-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#5B6AF0;margin-bottom:4px}
+  .winner-name{font-size:22px;font-weight:800;color:#1A1D2E;margin-bottom:2px}
+  .winner-score{font-size:28px;font-weight:800;color:#5B6AF0}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+  th{padding:7px 8px;color:#6B7280;font-weight:600;border-bottom:1px solid #E2E5EC;text-align:center}
+  th:first-child{text-align:left}
+  td{padding:7px 8px;border-bottom:1px solid #F3F4F6;text-align:center}
+  td:first-child{text-align:left;font-weight:500}
+  .accent{color:#5B6AF0;font-weight:700}
+  .context-box{background:#EEF0FE;border:1px solid #C7CBF9;border-radius:8px;padding:14px;margin-bottom:16px}
+  .ranking-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F3F4F6}
+  .bar-wrap{flex:1;height:7px;background:#E2E5EC;border-radius:4px;margin:0 12px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:4px;background:#5B6AF0}
+  .ai-analysis{background:#F9FAFB;border:1px solid #E2E5EC;border-radius:8px;padding:16px;margin-top:12px}
+  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #E2E5EC;text-align:center;font-size:10px;color:#9CA3AF;line-height:1.8}
+</style>
+</head>
+<body>${html}</body>
+</html>`);
+            win.document.close();
+            win.onload = () => { win.focus(); win.print(); };
+          }} style={{
+            width:"100%", background:"linear-gradient(135deg,#16A34A,#15803D)",
+            border:"none", borderRadius:10, color:"#fff", fontSize:14, fontWeight:600,
+            padding:"14px", cursor:"pointer", display:"flex", alignItems:"center",
+            justifyContent:"center", gap:8, fontFamily:"inherit",
+            boxShadow:"0 2px 8px rgba(22,163,74,0.3)",
+          }}>
+            🖨️ Imprimir / Guardar PDF
+          </button>
+        </div>
+      )}
+
+      <div className="no-print" style={{textAlign:"center",paddingBottom:8}}>
+        <GhostBtn onClick={onReset}>← Nueva decisión</GhostBtn>
+      </div>
+    </div>
+  );
+}
+
+// ── APP PRINCIPAL ────────────────────────────────────────────────────────────
+function App() {
+  const [step, setStep] = useState(0);
+  const [state, setState] = useState({
+    question: "", context: "",
+    options: ["",""],
+    criteria: [{name:"",pct:""},{name:"",pct:""},{name:"",pct:""}],
+    ratings: [],
+  });
+
+  const goNext = () => {
+    if (step === 1) {
+      const validOpts = state.options.filter(o=>o.trim());
+      setState(s=>({...s, ratings: validOpts.map(()=>s.criteria.map(()=>""))}));
+    }
+    if (step === 2) {
+      const validOpts = state.options.filter(o=>o.trim());
+      setState(s=>({...s, ratings: validOpts.map((_,oi)=>s.criteria.map((_,ci)=>s.ratings[oi]?.[ci]??""))}));
+    }
+    setStep(s=>s+1);
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  const reset = () => {
+    setStep(0);
+    setState({question:"",context:"",options:["",""],
+      criteria:[{name:"",pct:""},{name:"",pct:""},{name:"",pct:""}],ratings:[]});
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,
+      display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 0"}}>
+
+      {/* Hero header with soft gradient */}
+      <div style={{
+        width:"100%",
+        background:"linear-gradient(135deg, #EEF0FE 0%, #F0F7FF 50%, #F5F0FF 100%)",
+        borderBottom:"1px solid #DDE3F5",
+        padding:"40px 16px 32px",
+        display:"flex", flexDirection:"column", alignItems:"center",
+      }}>
+        <div style={{
+          display:"inline-flex", alignItems:"center", gap:6,
+          background:"#fff", border:"1px solid #C7CBF9", borderRadius:20,
+          padding:"4px 14px", fontSize:11, fontWeight:600,
+          color:"#5B6AF0", letterSpacing:"0.08em", textTransform:"uppercase",
+          marginBottom:16, boxShadow:"0 1px 4px rgba(91,106,240,0.12)"
+        }}>
+          ✦ Método de decisión ponderada
+        </div>
+        <h1 style={{fontSize:"clamp(24px,4vw,36px)",fontWeight:800,margin:"0 0 10px",
+          color:C.text,letterSpacing:"-0.02em",textAlign:"center"}}>
+          Matriz de Decisión
+        </h1>
+        <p style={{fontSize:14,color:C.muted,margin:"0 0 20px",lineHeight:1.6,textAlign:"center",maxWidth:460}}>
+          Tomá decisiones complejas con un método claro: ponderá criterios, calificá opciones
+          y encontrá la mejor alternativa con apoyo de IA.
+        </p>
+
+        {/* Privacy notice */}
+        <div style={{
+          maxWidth:500, width:"100%",
+          background:"#fff", border:"1px solid #D1FAE5", borderRadius:10,
+          padding:"12px 16px", display:"flex", gap:10, alignItems:"flex-start",
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
+        }}>
+          <span style={{fontSize:18, flexShrink:0, marginTop:1}}>🔒</span>
+          <div>
+            <p style={{fontSize:12, fontWeight:700, color:"#16A34A", margin:"0 0 3px", textTransform:"uppercase", letterSpacing:"0.06em"}}>
+              Tu privacidad está protegida
+            </p>
+            <p style={{fontSize:12, color:"#374151", margin:0, lineHeight:1.6}}>
+              Esta aplicación <strong>no almacena, transmite ni registra</strong> ningún dato personal,
+              ni las opciones evaluadas, criterios utilizados, calificaciones asignadas ni resultados obtenidos.
+              Todo el procesamiento ocurre exclusivamente en tu dispositivo y se elimina al cerrar la página.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:"32px 16px 0", width:"100%", display:"flex", flexDirection:"column", alignItems:"center"}}>
+
+      <StepBar step={step} />
+
+      <div style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}} className="fade-up">
+        {step===0 && <Step0 state={state} setState={setState} onNext={goNext} />}
+        {step===1 && <Step1 state={state} setState={setState} onNext={goNext} onBack={()=>setStep(0)} />}
+        {step===2 && <Step2 state={state} setState={setState} onNext={goNext} onBack={()=>setStep(1)} />}
+        {step===3 && <Step3 state={state} setState={setState} onNext={goNext} onBack={()=>setStep(2)} />}
+        {step===4 && <Step4 state={state} onReset={reset} />}
+      </div>
+
+      </div>{/* end inner padding div */}
+
+      <footer style={{marginTop:48,paddingTop:20,paddingBottom:24,width:"100%",maxWidth:580,
+        borderTop:`1px solid ${C.border}`,textAlign:"center",display:"flex",flexDirection:"column",gap:5}}>
+        <p style={{margin:0,fontSize:12,color:C.muted}}>
+          APP generada por <a href="https://claude.ai" target="_blank" rel="noopener noreferrer"
+            style={{color:C.accent,textDecoration:"none",fontWeight:600}}>Claude.ai</a>
+        </p>
+        <p style={{margin:0,fontSize:11,color:C.muted}}>
+          El diseño, código y contenido de esta app están protegidos por leyes de derechos de autor.
+          © 2026 - Decisiones Inteligentes
+        </p>
+        <p style={{margin:0,fontSize:11,color:C.muted,fontWeight:600}}>
+          Lic. José María Condomí Alcorta
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>

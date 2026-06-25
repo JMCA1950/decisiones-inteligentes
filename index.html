@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Matriz de Decisión<br><span style='font-size:14px;font-weight:normal'>Versión 2.1 (Edición Gratuita)</span> — Decisiones Inteligentes</title>
+  <title>Matriz de Decisión<br><span style='font-size:14px;font-weight:normal'>Versión 2.2 — Edición Gratuita</span> — Decisiones Inteligentes</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -117,6 +117,47 @@ function Textarea({ value, onChange, placeholder, rows=3, style={} }) {
   );
 }
 
+
+function HelpBox({ show, onClose }) {
+  if (!show) return null;
+  return (
+    <div className="no-print" style={{
+      position:"fixed", inset:0, background:"rgba(17,24,39,0.45)",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      padding:16, zIndex:9999
+    }}>
+      <div style={{
+        background:C.white, border:`1px solid ${C.border}`, borderRadius:14,
+        maxWidth:560, width:"100%", padding:24, boxShadow:"0 20px 40px rgba(0,0,0,0.18)"
+      }}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12}}>
+          <h2 style={{fontSize:20,fontWeight:800,color:C.text,margin:0}}>Ejemplo rápido</h2>
+          <button onClick={onClose} style={{
+            background:"none",border:"none",fontSize:22,cursor:"pointer",color:C.muted,lineHeight:1
+          }}>×</button>
+        </div>
+        <p style={{fontSize:13,color:C.muted,lineHeight:1.6,margin:"0 0 14px"}}>
+          Suponga que debe elegir entre dos proveedores.
+        </p>
+        <div style={{display:"grid",gap:10,fontSize:13,color:C.text,lineHeight:1.55}}>
+          <div><strong>1. Opciones:</strong> Proveedor A / Proveedor B.</div>
+          <div><strong>2. Criterios:</strong> costo, calidad y plazo de entrega.</div>
+          <div><strong>3. Importancia relativa:</strong> costo 40%, calidad 35%, plazo 25%. Total: 100%.</div>
+          <div><strong>4. Calificaciones:</strong> valore cada proveedor de 0 a 10 según qué tan favorable resulta frente a cada criterio.</div>
+          <div><strong>Resultado:</strong> la matriz identifica la opción con mejor valoración según los criterios y la importancia relativa definidos por el decisor.</div>
+        </div>
+        <p style={{fontSize:12,color:C.muted,lineHeight:1.6,margin:"14px 0 0"}}>
+          La herramienta no reemplaza el juicio humano: ordena la información para apoyar el proceso decisorio.
+        </p>
+        <div style={{textAlign:"right",marginTop:18}}>
+          <PrimaryBtn onClick={onClose}>Entendido</PrimaryBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ── STEP BAR ─────────────────────────────────────────────────────────────────
 function StepBar({ step }) {
   return (
@@ -188,7 +229,10 @@ function Step1({ state, setState, onNext, onBack }) {
 
   return (
     <Card>
-      <SectionLabel>Opciones a comparar (mínimo 2, máximo 6)</SectionLabel>
+      <SectionLabel>Opciones a comparar</SectionLabel>
+      <p style={{fontSize:13,color:C.muted,margin:"0 0 16px",lineHeight:1.5}}>
+        La matriz comparará cada opción utilizando los criterios que Ud. determine en el siguiente paso.
+      </p>
       {opts.map((opt,i) => (
         <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
           <div style={{width:30,height:30,borderRadius:8,background:C.accentLight,color:C.accent,
@@ -239,12 +283,12 @@ function Step2({ state, setState, onNext, onBack }) {
     <Card>
       <SectionLabel>Criterios de decisión (mínimo 3)</SectionLabel>
       <p style={{fontSize:13,color:C.muted,margin:"0 0 16px",lineHeight:1.5}}>
-        Definí qué aspectos importan y asignales un peso en porcentaje. Los porcentajes deben sumar exactamente <strong>100%</strong>.
+        Defina los aspectos relevantes que utilizará para comparar las opciones. Distribuya la importancia de los criterios elegidos según la influencia relativa que cada uno tiene en la decisión. La suma total debe ser <strong>100%</strong>.
       </p>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 90px 32px",gap:8,marginBottom:6}}>
         <span style={{fontSize:11,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em"}}>Criterio</span>
-        <span style={{fontSize:11,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"center"}}>Peso %</span>
+        <span style={{fontSize:11,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"center"}}>Importancia relativa %</span>
         <span/>
       </div>
 
@@ -326,7 +370,7 @@ function Step3({ state, setState, onNext, onBack }) {
               <div key={ci} style={{marginBottom:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
                   <span style={{fontSize:13,color:C.text,fontWeight:500}}>{cr.name}</span>
-                  <span style={{fontSize:11,color:C.muted}}>peso: {cr.pct}%</span>
+                  <span style={{fontSize:11,color:C.muted}}>importancia relativa: {cr.pct}%</span>
                 </div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
                   {[0,1,2,3,4,5,6,7,8,9,10].map(v => (
@@ -448,7 +492,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
         <h2>{question}</h2>
         {context.trim() && <><h3>Contexto y condicionamientos</h3><p>{context}</p></>}
         <div className="winner-box">
-          <div className="winner-label">Opción recomendada</div>
+          <div className="winner-label">Opción con mejor valoración</div>
           <div className="winner-name">{winner.name}</div>
           <div className="winner-score">{winner.score.toFixed(2)} <span style={{fontSize:14,fontWeight:400,color:"#6B7280"}}>/ 10</span></div>
         </div>
@@ -467,7 +511,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
           <thead>
             <tr>
               <th style={{textAlign:"left"}}>Criterio</th>
-              <th>Peso</th>
+              <th>Importancia relativa</th>
               {validOpts.map((opt,i)=><th key={i} colSpan={2}>{LETTERS[i]}. {opt.length>12?opt.slice(0,12)+"…":opt}</th>)}
             </tr>
             <tr>
@@ -527,7 +571,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
       <Card style={{textAlign:"center",padding:28,background:`linear-gradient(135deg,${C.accentLight},#fff)`
         ,border:`2px solid ${C.accentMid}`}}>
         <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:C.accent,marginBottom:8}}>
-          Opción recomendada por la matriz
+          Opción con mejor valoración
         </div>
         <div style={{fontSize:28,fontWeight:800,color:C.text,marginBottom:6}}>{winner.name}</div>
         <div style={{fontSize:36,fontWeight:800,color:C.accent,lineHeight:1}}>
@@ -573,7 +617,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
                 <th style={{textAlign:"left",padding:"7px 10px 7px 0",color:C.muted,fontWeight:600,
                   borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>Criterio</th>
                 <th style={{textAlign:"center",padding:"7px 8px",color:C.muted,fontWeight:600,
-                  borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>Peso</th>
+                  borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>Importancia relativa</th>
                 {validOpts.map((opt,i) => (
                   <th key={i} colSpan={2} style={{textAlign:"center",padding:"7px 6px",color:C.muted,fontWeight:600,
                     borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>
@@ -630,7 +674,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
 
         {/* Mini leyenda de criterios con sus pesos */}
         <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${C.border}`}}>
-          <SectionLabel style={{marginBottom:8}}>Peso de cada criterio</SectionLabel>
+          <SectionLabel style={{marginBottom:8}}>Importancia relativa de cada criterio</SectionLabel>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
             {criteria.map((cr,i) => (
               <div key={i} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,
@@ -736,6 +780,7 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
 // ── APP PRINCIPAL ────────────────────────────────────────────────────────────
 function App() {
   const [step, setStep] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
   const [state, setState] = useState({
     question: "", context: "",
     options: ["",""],
@@ -766,6 +811,7 @@ function App() {
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,
       display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 0"}}>
+      <HelpBox show={showHelp} onClose={()=>setShowHelp(false)} />
 
       {/* Hero header with soft gradient */}
       <div style={{
@@ -784,10 +830,20 @@ function App() {
         }}>
           ✦ Método de decisión ponderada
         </div>
-        <h1 style={{fontSize:"clamp(24px,4vw,36px)",fontWeight:800,margin:"0 0 10px",
+        <h1 style={{fontSize:"clamp(24px,4vw,36px)",fontWeight:800,margin:"0 0 6px",
           color:C.text,letterSpacing:"-0.02em",textAlign:"center"}}>
           Matriz de Decisión
         </h1>
+        <div style={{fontSize:14,fontWeight:600,color:C.accent,margin:"0 0 12px",textAlign:"center"}}>
+          V 2.2 - Versión gratuita
+        </div>
+        <button className="no-print" onClick={()=>setShowHelp(true)} style={{
+          background:"#fff", border:"1px solid #C7CBF9", borderRadius:10,
+          padding:"8px 14px", fontSize:13, fontWeight:600, color:C.accent,
+          cursor:"pointer", marginBottom:16, boxShadow:"0 1px 4px rgba(91,106,240,0.12)"
+        }}>
+          Ver ejemplo rápido
+        </button>
         <p style={{fontSize:14,color:C.muted,margin:"0 0 20px",lineHeight:1.6,textAlign:"center",maxWidth:460}}>
           Tomá decisiones complejas con un método claro: ponderá criterios, calificá opciones
           y encontrá la mejor alternativa con apoyo de IA.

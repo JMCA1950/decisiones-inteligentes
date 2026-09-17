@@ -771,7 +771,17 @@ Sé específico, directo y útil. Hace referencia explícita al contexto persona
       )}
 
       <div className="no-print" style={{textAlign:"center",paddingBottom:8}}>
-        <GhostBtn onClick={onReset}>← Nueva decisión</GhostBtn>
+       <GhostBtn
+  onClick={onReset}
+  style={{
+    background:"#374151",
+    color:"#FFFFFF",
+    fontWeight:700,
+    borderColor:"#374151"
+  }}
+>
+  ← Nueva decisión
+</GhostBtn>
       </div>
     </div>
   );
